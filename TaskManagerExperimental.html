@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Менеджер задач</title>
+    <link rel="icon" type="image/x-icon" href="Elaina1.jpeg">
+    <link href="style.css" rel="stylesheet" type="text/css">
+</head>
+
+
+<body bgcolor="#333">
+<div id="app">
+    <div class="header">
+        <h1>Task Manager</h1>
+    </div>
+    <div class="main">
+        <div class="tasks" id="active-tasks-container">
+            <h2>active</h2>
+            <ul id="active-tasks"></ul>
+        </div>
+        <div class="tasks" id="completed-tasks-container">
+            <h2>complited</h2>
+            <ul id="completed-tasks"></ul>
+        </div>
+        <div class="tasks" id="deleted-tasks-container">
+            <h2>deleted</h2>
+            <ul id="deleted-tasks"></ul>
+        </div>
+    </div>
+    <div class="footer">
+        <input type="text" id="new-task" placeholder="Добавить новую задачу...">
+        <button onclick="addTask()">add task</button>
+        <div class="task-buttons">
+            <button onclick="loadTasks('active-tasks-container')">Active</button>
+            <button onclick="loadTasks('completed-tasks-container')">Completed</button>
+            <button onclick="loadTasks('deleted-tasks-container')">Deleted</button>
+            <button onclick="deleteAll()">Delete All</button> <!-- Перемещаем кнопку "Delete All" сюда -->
+        </div>
+    </div>
+</div>
+
+<script>document.addEventListener("DOMContentLoaded", function () {
+    loadTasks('active-tasks-container');
+});
+
+function loadTasks(containerId) {
+    const tasks = readTasksFromLocalStorage();
+    renderTasks(tasks, containerId);
+}
+
+function addTask() {
+    const newTaskInput = document.getElementById('new-task');
+    const newTask = newTaskInput.value.trim();
+    if (newTask !== "") {
+        const tasks = readTasksFromLocalStorage();
+        tasks.push({ id: Date.now(), text: newTask, completed: false, deleted: false, date: new Date().toLocaleString() }); // Добавляем дату
+        saveTasksToLocalStorage(tasks);
+        renderTasks(tasks, 'active-tasks-container');
+        newTaskInput.value = "";
+    }
+}
+
+function markCompleted(taskId, currentContainerId) {
+    const tasks = readTasksFromLocalStorage();
+    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    if (taskIndex !== -1) {
+        tasks[taskIndex].completed = true;
+        saveTasksToLocalStorage(tasks);
+        renderTasks(tasks, currentContainerId);
+    }
+}
+
+function deleteTask(taskId, currentContainerId) {
+    const tasks = readTasksFromLocalStorage();
+    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    if (taskIndex !== -1) {
+        tasks[taskIndex].deleted = true;
+        saveTasksToLocalStorage(tasks);
+        renderTasks(tasks, currentContainerId);
+    }
+}
+
+function permanentlyDeleteTask(taskId, currentContainerId) {
+    const tasks = readTasksFromLocalStorage();
+    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    if (taskIndex !== -1) {
+        tasks.splice(taskIndex, 1);
+        saveTasksToLocalStorage(tasks);
+        renderTasks(tasks, currentContainerId);
+    }
+}
+
+function restoreTask(taskId, currentContainerId) {
+    const tasks = readTasksFromLocalStorage();
+    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    if (taskIndex !== -1) {
+        tasks[taskIndex].deleted = false;
+        saveTasksToLocalStorage(tasks);
+        renderTasks(tasks, currentContainerId);
+    }
+}
+
+function deleteCompletedTask(taskId, currentContainerId) {
+    const tasks = readTasksFromLocalStorage();
+    const taskIndex = tasks.findIndex(task => task.id === taskId && task.completed);
+    if (taskIndex !== -1) {
+        tasks[taskIndex].deleted = true;
+        tasks[taskIndex].completed = false;
+        saveTasksToLocalStorage(tasks);
+        renderTasks(tasks, currentContainerId);
+    }
+}
+
+function deleteAll() {
+    const tasks = [];
+    saveTasksToLocalStorage(tasks);
+    renderTasks(tasks, 'active-tasks-container');
+}
+
+function readTasksFromLocalStorage() {
+    const tasksString = localStorage.getItem('tasks');
+    return tasksString ? JSON.parse(tasksString) : [];
+}
+
+function saveTasksToLocalStorage(tasks) {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
+function renderTasks(tasks, containerId) {
+    const activeTasksList = document.getElementById('active-tasks');
+    const completedTasksList = document.getElementById('completed-tasks');
+    const deletedTasksList = document.getElementById('deleted-tasks');
+
+    activeTasksList.innerHTML = "";
+    completedTasksList.innerHTML = "";
+    deletedTasksList.innerHTML = "";
+
+    tasks.forEach(task => {
+        const taskElement = document.createElement('li');
+        taskElement.innerHTML = `<span>${task.text} (${task.date})</span>`; // Добавляем дату
+        if (task.completed) {
+            taskElement.classList.add('completed');
+            taskElement.innerHTML += `<button onclick="deleteCompletedTask(${task.id}, 'completed-tasks-container')">delete</button>`;
+            completedTasksList.appendChild(taskElement);
+        } else if (task.deleted) {
+            taskElement.classList.add('deleted');
+            taskElement.innerHTML += `<div>`;
+            taskElement.innerHTML += `<button onclick="permanentlyDeleteTask(${task.id}, 'deleted-tasks-container')">delete permanently</button>`;
+            taskElement.innerHTML += `<button onclick="restoreTask(${task.id}, 'deleted-tasks-container')">back</button>`;
+            taskElement.innerHTML += `</div>`;
+            deletedTasksList.appendChild(taskElement);
+        } else {
+            taskElement.innerHTML += `<button onclick="markCompleted(${task.id}, 'active-tasks-container')">complite</button>`;
+            taskElement.innerHTML += `<button onclick="deleteTask(${task.id}, 'active-tasks-container')">delete</button>`;
+            activeTasksList.appendChild(taskElement);
+        }
+    });
+
+    toggleTasks(containerId);
+}
+
+function toggleTasks(containerId) {
+    const containers = ['active-tasks-container', 'completed-tasks-container', 'deleted-tasks-container'];
+    containers.forEach(container => {
+        const element = document.getElementById(container);
+        if (container === containerId) {
+            element.style.display = 'block';
+        } else {
+            element.style.display = 'none';
+        }
+    });
+}
+</script>
+<div class="main_footer">
+    <p style="font-size: 50px">
+        Copyright ©
+    </p>
+</div>
+
+</body>
+</html>
